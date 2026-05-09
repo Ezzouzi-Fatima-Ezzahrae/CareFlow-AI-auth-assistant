@@ -13,7 +13,7 @@ GOOGLE_APPLICATION_CREDENTIALS = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "ve
 
 FHIR_BASE_URL = os.getenv("FHIR_BASE_URL", "https://hapi.fhir.org/baseR4")
 MCP_SERVER_HOST = os.getenv("MCP_SERVER_HOST", "0.0.0.0")
-MCP_SERVER_PORT = int(os.getenv("MCP_SERVER_PORT", "8000"))
+MCP_SERVER_PORT = int(os.getenv("PORT", os.getenv("MCP_SERVER_PORT", "8000")))
 
 # Gemini 2.5 Flash — same model Prompt Opinion uses as default
 LLM_MODEL = os.getenv("LLM_MODEL", "gemini-2.5-flash")
