@@ -1,10 +1,15 @@
 """
 Tool 1: generate_prior_auth
 Generates a complete, payer-ready prior authorization request from FHIR patient data.
+Falls back to a professional template letter if the LLM is unavailable.
 """
+import logging
+from datetime import date
 from fhir.client import FHIRClient
 from fhir.synthetic_data import summarize_bundle_for_llm
 from tools.llm import llm_call
+
+logger = logging.getLogger("careflow.prior_auth")
 
 SYSTEM_PROMPT = """You are a clinical prior authorization specialist AI with deep expertise in
 payer requirements, clinical guidelines, and medical necessity criteria.
@@ -61,22 +66,13 @@ Generate the complete prior authorization letter, then provide:
 - KEY POINTS: A bullet list of the 3-5 strongest arguments for approval
 - URGENCY ASSESSMENT: Is this routine, urgent, or stat? With brief justification."""
 
-    response = llm_call(SYSTEM_PROMPT, user_prompt)
-
-    # Parse urgency from response
-    urgency = "routine"
-    lower = response.lower()
-    if "stat" in lower or "immediate" in lower or "life-threatening" in lower:
-        urgency = "stat"
-    elif "urgent" in lower or "expedited" in lower:
-        urgency = "urgent"
-
-    return {
-        "patient_id": patient_id,
-        "requested_medication": requested_medication,
-        "indication": indication,
-        "payer": payer_name,
-        "prior_auth_letter": response,
-        "urgency": urgency,
-        "fhir_data_used": True,
-    }
+    try:
+        response = llm_call(SYSTEM_PROMPT, user_prompt)
+        logger.info(f"LLM generated prior auth letter: {len(response)} chars")
+    except Exception as exc:
+        logger.error(f"LLM call failed, using template fallback: {exc}")
+        response = _fallback_prior_auth(
+            patient_id=patient_id,
+            requested_medication=requested_medication,
+            indication=indication,
+            payer

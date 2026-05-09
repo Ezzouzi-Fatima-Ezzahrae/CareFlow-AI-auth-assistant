@@ -14,7 +14,11 @@ logger = logging.getLogger("careflow.fhir")
 
 class FHIRClient:
     def __init__(self, base_url: str = FHIR_BASE_URL, token: Optional[str] = None):
-        self.base_url = (base_url or "").rstrip("/")
+        base = (base_url or "").rstrip("/")
+        # Po sometimes sends the workspace URL without /fhir suffix — normalise it
+        if base and not base.endswith("/fhir") and "/fhir" not in base.split("/")[-1]:
+            base = base + "/fhir"
+        self.base_url = base
         headers = {
             "Accept": "application/fhir+json",
             "Content-Type": "application/fhir+json",
@@ -65,10 +69,4 @@ class FHIRClient:
 
     def _get(self, path: str) -> dict:
         r = self.client.get(f"{self.base_url}/{path}")
-        r.raise_for_status()
-        return r.json()
-
-    def _search(self, resource_type: str, params: dict) -> dict:
-        r = self.client.get(f"{self.base_url}/{resource_type}", params=params)
-        r.raise_for_status()
-        return r.json()
+        r.raise_for_statu

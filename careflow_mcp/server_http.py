@@ -287,26 +287,12 @@ async def app(scope, receive, send):
                            [b"content-length",str(len(body)).encode()]]})
             await send({"type":"http.response.body","body":body})
 
-        elif path in ("/", "/health"):
-            body = json.dumps({
-                "service": "CareFlow Prior Authorization Intelligence",
-                "status":  "running",
-                "mcp_endpoint": "/mcp",
-            }).encode()
-            await send({
-                "type": "http.response.start", "status": 200,
-                "headers": [
-                    [b"content-type",   b"application/json"],
-                    [b"content-length", str(len(body)).encode()],
-                ],
-            })
-            await send({"type": "http.response.body", "body": body})
-
-        else:
-            await send({"type": "http.response.start", "status": 404,
-                        "headers": [[b"content-type", b"application/json"]]})
-            await send({"type": "http.response.body", "body": b'{"error":"not found"}'})
-
-
-if __name__ == "__main__":
-    uvicorn.run(app, host=MCP_SERVER_HOST, port=MCP_SERVER_PORT, log_level="info")
+        elif path == "/demo":
+            demo_html = b"""<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CareFlow \xe2\x80\x94 Prior Authorization Intelligence</title>
+<style>
+*{box-si

@@ -65,12 +65,10 @@ def _get_access_token() -> str:
     return _cached_credentials.token
 
 
-def llm_call(system_prompt: str, user_prompt: str) -> str:
-    """Single-turn LLM call using Gemini 2.5 Flash. Returns the text response."""
-    token = _get_access_token()
-
-    url = f"{GEMINI_API_BASE}/{LLM_MODEL}:generateContent"
-    logger.info(f"Calling Gemini: model={LLM_MODEL} prompt_len={len(user_prompt)}")
+def _try_model(model_name: str, token: str, system_prompt: str, user_prompt: str) -> str:
+    """Attempt a single Gemini model call. Raises on any failure."""
+    url = f"{GEMINI_API_BASE}/{model_name}:generateContent"
+    logger.info(f"Calling Gemini: model={model_name} prompt_len={len(user_prompt)}")
 
     headers = {
         "Authorization": f"Bearer {token}",
@@ -92,16 +90,15 @@ def llm_call(system_prompt: str, user_prompt: str) -> str:
         },
     }
 
-    response = requests.post(url, headers=headers, json=payload, timeout=60)
+    response = requests.post(url, headers=headers, json=payload, timeout=90)
 
     if not response.ok:
-        logger.error(f"Gemini API error: status={response.status_code} body={response.text[:500]}")
+        logger.error(f"Gemini API error [{model_name}]: status={response.status_code} body={response.text[:500]}")
         response.raise_for_status()
 
     data = response.json()
     logger.info(f"Gemini response received, keys={list(data.keys())}")
 
-    # Check for blocked/empty response
     if "candidates" not in data:
         logger.error(f"No candidates in Gemini response: {json.dumps(data)[:500]}")
         raise RuntimeError(f"Gemini returned no candidates: {data.get('promptFeedback', data)}")
@@ -117,3 +114,6 @@ def llm_call(system_prompt: str, user_prompt: str) -> str:
     text = candidate["content"]["parts"][0]["text"]
     logger.info(f"Gemini response length: {len(text)} chars")
     return text
+
+
+# Model names to try in order of pr

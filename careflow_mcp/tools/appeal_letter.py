@@ -2,10 +2,15 @@
 Tool 3: draft_appeal_letter
 Generates a clinical appeal letter when a prior authorization has been denied.
 Uses LLM reasoning to construct targeted counter-arguments.
+Falls back to a professional template letter if the LLM is unavailable.
 """
+import logging
+from datetime import date
 from fhir.client import FHIRClient
 from fhir.synthetic_data import summarize_bundle_for_llm
 from tools.llm import llm_call
+
+logger = logging.getLogger("careflow.appeal_letter")
 
 SYSTEM_PROMPT = """You are an expert healthcare attorney and clinical advocate specializing in
 insurance appeals. You have successfully overturned thousands of prior authorization denials.
@@ -80,14 +85,7 @@ Please provide:
 
 4. ESCALATION ADVICE: If this appeal is also denied, what should the next step be?"""
 
-    response = llm_call(SYSTEM_PROMPT, user_prompt)
-
-    return {
-        "patient_id": patient_id,
-        "denied_medication": denied_medication,
-        "denial_reason": denial_reason,
-        "appeal_level": appeal_level,
-        "payer": payer_name,
-        "appeal_letter": response,
-        "fhir_data_used": True,
-    }
+    try:
+        response = llm_call(SYSTEM_PROMPT, user_prompt)
+        logger.info(f"LLM generated appeal letter: {len(response)} chars")
+    except Exception 
