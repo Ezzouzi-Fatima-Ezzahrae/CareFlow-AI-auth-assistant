@@ -1,0 +1,26 @@
+# Secrets — never commit these
+vertex_key.json
+.env
+*.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+pytest-cache-files-*
+*.egg-info/
+dist/
+build/
+
+# Cloudflare tunnel binary
+cloudflared.exe
+cloudflared
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
