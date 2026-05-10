@@ -288,7 +288,7 @@ async def app(scope, receive, send):
             await send({"type":"http.response.body","body":body})
 
         elif path == "/demo":
-            demo_html = b"""<!doctype html>
+            demo_html = """<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -517,7 +517,7 @@ function showResults(data) {
 }
 </script>
 </body>
-</html>"""
+</html>""".encode("utf-8")
             await send({"type":"http.response.start","status":200,
                 "headers":[[b"content-type",b"text/html; charset=utf-8"],
                            [b"content-length",str(len(demo_html)).encode()]]})
