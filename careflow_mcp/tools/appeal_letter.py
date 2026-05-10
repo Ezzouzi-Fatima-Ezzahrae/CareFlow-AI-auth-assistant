@@ -87,4 +87,109 @@ Please provide:
 
     try:
         response = llm_call(SYSTEM_PROMPT, user_prompt)
-       
+        logger.info(f"LLM generated appeal letter: {len(response)} chars")
+    except Exception as exc:
+        logger.error(f"LLM call failed, using template fallback: {exc}")
+        response = _fallback_appeal_letter(
+            patient_id=patient_id,
+            denied_medication=denied_medication,
+            denial_reason=denial_reason,
+            appeal_level=appeal_level,
+            payer_name=payer_name,
+            ordering_physician=ordering_physician,
+        )
+
+    # Parse structured sections from LLM response
+    appeal_letter = _extract_section(response, ["APPEAL LETTER", "1. APPEAL LETTER"])
+    rebuttal_points = _extract_section(response, ["KEY REBUTTAL POINTS", "2. KEY REBUTTAL POINTS"])
+    recommended_attachments = _extract_section(response, ["RECOMMENDED ATTACHMENTS", "3. RECOMMENDED ATTACHMENTS"])
+    escalation_advice = _extract_section(response, ["ESCALATION ADVICE", "4. ESCALATION ADVICE"])
+
+    if not appeal_letter:
+        appeal_letter = response  # Use full response if parsing fails
+
+    return {
+        "appeal_letter": appeal_letter,
+        "rebuttal_points": rebuttal_points or "See appeal letter for clinical arguments.",
+        "recommended_attachments": recommended_attachments or "Recent lab results, physician notes, clinical guidelines.",
+        "escalation_advice": escalation_advice or "Request external independent review if Level 2 appeal is denied.",
+        "appeal_level": appeal_level,
+        "payer": payer_name,
+        "denied_medication": denied_medication,
+        "denial_reason": denial_reason,
+        "patient_id": patient_id,
+    }
+
+
+def _extract_section(text: str, headers: list) -> str:
+    """Extract a named section from structured LLM output."""
+    lines = text.split("\n")
+    for i, line in enumerate(lines):
+        line_upper = line.upper().strip()
+        for header in headers:
+            if header.upper() in line_upper:
+                # Collect lines until next numbered section or end
+                section_lines = []
+                for j in range(i + 1, len(lines)):
+                    next_line = lines[j].strip()
+                    # Stop at next major section header
+                    if next_line and next_line[0].isdigit() and ". " in next_line[:5]:
+                        break
+                    section_lines.append(lines[j])
+                return "\n".join(section_lines).strip()
+    return ""
+
+
+def _fallback_appeal_letter(
+    patient_id: str,
+    denied_medication: str,
+    denial_reason: str,
+    appeal_level: int,
+    payer_name: str,
+    ordering_physician: str,
+) -> str:
+    """Generate a professional template appeal letter when LLM is unavailable."""
+    today = date.today().strftime("%B %d, %Y")
+    level_text = {1: "First", 2: "Second", 3: "Third"}.get(appeal_level, "First")
+
+    return f"""PRIOR AUTHORIZATION APPEAL — LEVEL {appeal_level} ({level_text.upper()} APPEAL)
+Date: {today}
+
+To: Medical Director / Appeals Department
+{payer_name}
+
+Re: {level_text} Level Appeal — Prior Authorization Denial for {denied_medication}
+Patient ID: {patient_id}
+
+Dear Medical Director,
+
+I am writing to formally appeal the denial of prior authorization for {denied_medication} for the above-referenced patient. The stated reason for denial was: "{denial_reason}."
+
+CLINICAL JUSTIFICATION
+
+The requested treatment, {denied_medication}, is medically necessary for this patient based on their documented clinical history and current condition. The denial does not adequately account for the patient's individual clinical circumstances.
+
+REBUTTAL TO DENIAL REASON
+
+The denial reason of "{denial_reason}" is not supported by the patient's clinical record. The patient has a documented history that demonstrates medical necessity for this treatment. Alternative therapies have been considered and/or attempted, and {denied_medication} represents the most clinically appropriate treatment option.
+
+SUPPORTING EVIDENCE
+
+1. The patient's clinical history supports the medical necessity of {denied_medication}
+2. Current clinical guidelines support the use of this treatment for the patient's condition
+3. The requested treatment is consistent with evidence-based medicine
+
+REQUEST
+
+We respectfully request that {payer_name} reverse the denial and approve prior authorization for {denied_medication}. If additional clinical information is needed, please contact our office immediately.
+
+If this appeal is denied, we will pursue all available remedies including external independent review as provided under applicable state and federal law.
+
+Sincerely,
+
+{ordering_physician}
+Ordering Physician
+
+---
+Note: This is a template letter generated without LLM assistance. Please supplement with specific clinical details from the patient's medical record before submission.
+"""

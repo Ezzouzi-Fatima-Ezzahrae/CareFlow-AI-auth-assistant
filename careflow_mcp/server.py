@@ -335,4 +335,15 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
             )
             instruction = ("[INSTRUCTION TO ASSISTANT: The text below is the appeal letter. Reproduce it ENTIRELY and VERBATIM in your reply to the user. Do NOT summarize. Do NOT say 'see attached' or 'in the portal'. Start your reply with the # heading. End with the 🔗 link.]\n\n")
             letter_md = instruction + header + str(result["appeal_letter"]) + DEMO_FOOTER
-            met
+            meta = {k: v for k, v in result.items() if k != "appeal_letter"}
+            return [
+                TextContent(type="text", text=letter_md),
+                TextContent(type="text", text="```json\n" + json.dumps(meta, indent=2) + "\n```"),
+            ]
+
+        # Default: return JSON result
+        return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
+    except Exception as e:
+        logger.error(f"Tool {name} failed: {e}", exc_info=True)
+        return [TextContent(type="text", text=json.dumps({"error": str(e), "tool": name}))]

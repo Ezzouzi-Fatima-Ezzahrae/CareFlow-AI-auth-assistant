@@ -68,4 +68,11 @@ class FHIRClient:
             return get_synthetic_patient_bundle(patient_id)
 
     def _get(self, path: str) -> dict:
-        r 
+        r = self.client.get(f"{self.base_url}/{path}")
+        r.raise_for_status()
+        return r.json()
+
+    def _search(self, resource_type: str, params: dict) -> dict:
+        r = self.client.get(f"{self.base_url}/{resource_type}", params=params)
+        r.raise_for_status()
+        return r.json()

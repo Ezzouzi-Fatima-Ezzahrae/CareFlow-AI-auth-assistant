@@ -73,4 +73,119 @@ Generate the complete prior authorization letter, then provide:
         logger.error(f"LLM call failed, using template fallback: {exc}")
         response = _fallback_prior_auth(
             patient_id=patient_id,
-            requested_medication
+            requested_medication=requested_medication,
+            indication=indication,
+            payer_name=payer_name,
+        )
+
+    # Parse key points and urgency from response
+    key_points = _extract_section(response, ["KEY POINTS", "- KEY POINTS"])
+    urgency_text = _extract_section(response, ["URGENCY ASSESSMENT", "- URGENCY ASSESSMENT"])
+
+    # Determine urgency level
+    urgency = "routine"
+    if urgency_text:
+        urgency_lower = urgency_text.lower()
+        if "stat" in urgency_lower:
+            urgency = "stat"
+        elif "urgent" in urgency_lower:
+            urgency = "urgent"
+
+    # Extract the letter portion (everything before KEY POINTS)
+    prior_auth_letter = _extract_letter(response)
+    if not prior_auth_letter:
+        prior_auth_letter = response
+
+    return {
+        "prior_auth_letter": prior_auth_letter,
+        "key_points": key_points or "See letter for clinical justification.",
+        "urgency": urgency,
+        "payer": payer_name,
+        "requested_medication": requested_medication,
+        "indication": indication,
+        "patient_id": patient_id,
+    }
+
+
+def _extract_letter(text: str) -> str:
+    """Extract the letter portion before KEY POINTS section."""
+    markers = ["KEY POINTS", "- KEY POINTS", "URGENCY ASSESSMENT"]
+    lines = text.split("\n")
+    letter_lines = []
+    for line in lines:
+        line_upper = line.upper().strip()
+        if any(marker in line_upper for marker in markers):
+            break
+        letter_lines.append(line)
+    return "\n".join(letter_lines).strip()
+
+
+def _extract_section(text: str, headers: list) -> str:
+    """Extract a named section from structured LLM output."""
+    lines = text.split("\n")
+    for i, line in enumerate(lines):
+        line_upper = line.upper().strip()
+        for header in headers:
+            if header.upper() in line_upper:
+                section_lines = []
+                for j in range(i + 1, len(lines)):
+                    next_line = lines[j].strip()
+                    if next_line and next_line.startswith("- ") and any(
+                        h.upper() in next_line.upper() for h in ["KEY POINTS", "URGENCY"]
+                    ):
+                        break
+                    section_lines.append(lines[j])
+                return "\n".join(section_lines).strip()
+    return ""
+
+
+def _fallback_prior_auth(
+    patient_id: str,
+    requested_medication: str,
+    indication: str,
+    payer_name: str,
+) -> str:
+    """Generate a professional template PA letter when LLM is unavailable."""
+    today = date.today().strftime("%B %d, %Y")
+
+    return f"""PRIOR AUTHORIZATION REQUEST
+Date: {today}
+
+To: Prior Authorization Department
+{payer_name}
+
+Re: Prior Authorization Request for {requested_medication}
+Patient ID: {patient_id}
+Primary Indication: {indication}
+
+Dear Prior Authorization Reviewer,
+
+I am writing to request prior authorization for {requested_medication} for the above-referenced patient.
+
+CLINICAL INDICATION
+
+The patient has been diagnosed with {indication}, which requires treatment with {requested_medication}. This medication is medically necessary based on the patient's clinical history and current condition.
+
+MEDICAL NECESSITY JUSTIFICATION
+
+{requested_medication} is indicated for the treatment of {indication} per current clinical guidelines. The patient's condition has been evaluated and this treatment represents the most appropriate therapeutic option given their clinical profile.
+
+TREATMENT HISTORY
+
+The patient's treatment history has been reviewed. The requested medication is appropriate based on the patient's response to prior treatments and current clinical status.
+
+SUPPORTING EVIDENCE
+
+Current clinical guidelines support the use of {requested_medication} for {indication}. The requested treatment is consistent with evidence-based medicine and standard of care.
+
+REQUEST SUMMARY
+
+We respectfully request approval for {requested_medication} for the treatment of {indication}. Please contact our office if additional clinical documentation is required.
+
+Sincerely,
+
+Ordering Physician
+
+---
+Note: This is a template letter generated without LLM assistance. Please supplement with specific clinical details from the patient's medical record before submission.
+"""
