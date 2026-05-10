@@ -116,4 +116,31 @@ def _try_model(model_name: str, token: str, system_prompt: str, user_prompt: str
     return text
 
 
-# Model names to try in order of pr
+# Model names to try in order of preference
+_MODEL_CANDIDATES = [
+    LLM_MODEL,                          # configured name (gemini-2.5-flash)
+    "gemini-2.5-flash-preview-04-17",   # explicit preview version
+    "gemini-2.5-flash-preview-05-20",   # latest preview
+    "gemini-2.0-flash",                 # stable flash
+    "gemini-1.5-flash",                 # reliable fallback
+    "gemini-1.5-flash-latest",          # another alias
+]
+
+
+def llm_call(system_prompt: str, user_prompt: str) -> str:
+    """Single-turn LLM call. Tries multiple Gemini models until one succeeds."""
+    token = _get_access_token()
+
+    seen = set()
+    last_error = None
+    for model in _MODEL_CANDIDATES:
+        if model in seen:
+            continue
+        seen.add(model)
+        try:
+            return _try_model(model, token, system_prompt, user_prompt)
+        except Exception as exc:
+            logger.warning(f"Model {model} failed: {exc}")
+            last_error = exc
+
+    raise RuntimeError(f"All Gemini models failed. Last error: {last_error}")

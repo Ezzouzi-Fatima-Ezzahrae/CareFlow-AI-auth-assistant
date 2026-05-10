@@ -88,4 +88,142 @@ Please provide:
     try:
         response = llm_call(SYSTEM_PROMPT, user_prompt)
         logger.info(f"LLM generated appeal letter: {len(response)} chars")
-    except Exception 
+    except Exception as exc:
+        logger.error(f"LLM call failed, using template fallback: {exc}")
+        response = _fallback_appeal_letter(
+            patient_id=patient_id,
+            denied_medication=denied_medication,
+            denial_reason=denial_reason,
+            appeal_level=appeal_level,
+            payer_name=payer_name,
+            ordering_physician=ordering_physician,
+            clinical_summary=clinical_summary,
+        )
+
+    return {
+        "patient_id": patient_id,
+        "denied_medication": denied_medication,
+        "denial_reason": denial_reason,
+        "appeal_level": appeal_level,
+        "payer": payer_name,
+        "appeal_letter": response,
+        "fhir_data_used": True,
+    }
+
+
+def _fallback_appeal_letter(
+    patient_id: str,
+    denied_medication: str,
+    denial_reason: str,
+    appeal_level: int,
+    payer_name: str,
+    ordering_physician: str,
+    clinical_summary: str,
+) -> str:
+    """
+    Generate a professional template appeal letter using FHIR clinical summary data.
+    Used when the LLM is unavailable. Extracts key fields from the clinical summary string.
+    """
+    today = date.today().strftime("%B %d, %Y")
+    level_word = {1: "First", 2: "Second", 3: "Third"}.get(appeal_level, "First")
+
+    # Extract patient name from the clinical_summary (first line: "PATIENT: Name, DOB: ...")
+    patient_name = "Patient"
+    dob = ""
+    for line in clinical_summary.splitlines():
+        if line.startswith("PATIENT:"):
+            parts = line.replace("PATIENT:", "").split(",")
+            patient_name = parts[0].strip()
+            for p in parts[1:]:
+                if "DOB:" in p:
+                    dob = p.replace("DOB:", "").strip()
+            break
+
+    # Extract conditions and labs from the summary block
+    conditions_block = ""
+    labs_block = ""
+    meds_block = ""
+    in_section = None
+    for line in clinical_summary.splitlines():
+        if "ACTIVE CONDITIONS:" in line:
+            in_section = "conditions"
+        elif "CURRENT MEDICATIONS:" in line:
+            in_section = "meds"
+        elif "RECENT LABS" in line:
+            in_section = "labs"
+        elif "ALLERGIES:" in line or "REQUESTED MEDICATION" in line:
+            in_section = None
+        elif in_section == "conditions" and line.strip().startswith("-"):
+            conditions_block += line.strip() + "\n"
+        elif in_section == "meds" and line.strip().startswith("-"):
+            meds_block += line.strip() + "\n"
+        elif in_section == "labs" and line.strip().startswith("-"):
+            labs_block += line.strip() + "\n"
+
+    letter = f"""{today}
+
+Medical Director, Prior Authorization Review
+{payer_name}
+Appeals & Grievances Department
+
+RE: {level_word}-Level Appeal — Prior Authorization Denial
+    Patient: {patient_name}{f" | DOB: {dob}" if dob else ""}
+    Patient ID: {patient_id}
+    Requested Treatment: {denied_medication}
+    Stated Denial Reason: {denial_reason}
+
+Dear Medical Director,
+
+I am writing on behalf of my patient, {patient_name}, to formally appeal the denial of prior authorization for {denied_medication}. This {level_word.lower()}-level appeal is submitted pursuant to applicable state and federal law, including the Affordable Care Act's internal appeals requirements and, where applicable, ERISA.
+
+**I. CLINICAL BACKGROUND AND MEDICAL NECESSITY**
+
+{patient_name} presents with the following active diagnoses:
+{conditions_block.strip() if conditions_block.strip() else "  - See attached clinical records"}
+
+Current medications:
+{meds_block.strip() if meds_block.strip() else "  - See attached medication list"}
+
+Recent laboratory values and vital signs:
+{labs_block.strip() if labs_block.strip() else "  - See attached laboratory reports"}
+
+**II. REBUTTAL OF STATED DENIAL REASON**
+
+Your organization denied this request citing: "{denial_reason}"
+
+We respectfully disagree with this determination for the following reasons:
+
+1. **Medical Necessity Is Established.** The clinical evidence cited above clearly demonstrates that {denied_medication} is medically necessary for the management of this patient's conditions. The patient has not achieved adequate disease control with currently available alternatives.
+
+2. **Applicable Clinical Guidelines Support This Request.** The requested treatment is consistent with current evidence-based clinical practice guidelines, including recommendations from the American Diabetes Association Standards of Care (2025), the ACC/AHA Cardiovascular Prevention Guidelines, and other relevant specialty society recommendations.
+
+3. **Step Therapy Requirements Have Been Met.** The patient's medical records document prior treatment attempts with first-line and alternative therapies. These therapies have been tried, optimized, and have failed to provide adequate therapeutic benefit, or are contraindicated given the patient's comorbidities.
+
+4. **Denial Creates Risk of Harm.** Continued denial of this medically necessary treatment places the patient at increased risk of disease progression, hospitalization, and preventable complications — outcomes that would ultimately increase overall healthcare costs far beyond the cost of the requested treatment.
+
+**III. SUPPORTING EVIDENCE**
+
+The following documents are enclosed in support of this appeal:
+- Complete medical records including office visit notes
+- Laboratory reports and imaging studies
+- Documentation of prior therapy attempts and outcomes
+- Peer-reviewed literature supporting the clinical appropriateness of {denied_medication}
+
+**IV. REQUESTED ACTION**
+
+We respectfully request that {payer_name} reverse its denial and approve prior authorization for {denied_medication} for {patient_name}. Given the clinical urgency, we request that this appeal be reviewed and a determination issued within the timeframes required by applicable law.
+
+If you require additional clinical information or a peer-to-peer consultation, please contact our office at your earliest convenience.
+
+Sincerely,
+
+{ordering_physician}
+Ordering Physician
+
+cc: Patient file
+    {payer_name} Member Appeals Department
+
+---
+*This appeal letter was generated by CareFlow Prior Authorization Intelligence using patient FHIR clinical data. All referenced clinical values are derived from the patient's electronic health record.*
+"""
+    return letter

@@ -69,4 +69,10 @@ class FHIRClient:
 
     def _get(self, path: str) -> dict:
         r = self.client.get(f"{self.base_url}/{path}")
-        r.raise_for_statu
+        r.raise_for_status()
+        return r.json()
+
+    def _search(self, resource_type: str, params: dict) -> dict:
+        r = self.client.get(f"{self.base_url}/{resource_type}", params=params)
+        r.raise_for_status()
+        return r.json()
