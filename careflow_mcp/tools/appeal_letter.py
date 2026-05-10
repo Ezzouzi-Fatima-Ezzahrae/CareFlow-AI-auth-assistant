@@ -1,6 +1,8 @@
 """
 Tool 3: draft_appeal_letter
 Generates a clinical appeal letter when a prior authorization has been denied.
+Uses LLM reasoning to construct targeted counter-arguments.
+Falls back to a professional template letter if the LLM is unavailable.
 """
 import logging
 from datetime import date
@@ -35,7 +37,22 @@ def draft_appeal_letter(
     fhir_base_url: str = None,
     fhir_token: str = None,
 ) -> dict:
-    """Draft a clinical appeal letter for a denied prior authorization."""
+    """
+    Draft a clinical appeal letter for a denied prior authorization.
+
+    Args:
+        patient_id: FHIR Patient resource ID
+        denied_medication: The medication/procedure that was denied
+        denial_reason: The payer's stated reason for denial
+        appeal_level: 1 (first appeal), 2 (second appeal), or 3 (external review)
+        payer_name: Name of the insurance payer
+        ordering_physician: Name of the requesting physician
+        fhir_base_url: FHIR server base URL
+        fhir_token: FHIR auth token
+
+    Returns:
+        dict with 'appeal_letter', 'fhir_data_used', etc.
+    """
     client = FHIRClient(base_url=fhir_base_url or "", token=fhir_token)
     bundle = client.get_patient_bundle(patient_id)
     clinical_summary = summarize_bundle_for_llm(bundle)
@@ -103,6 +120,7 @@ def _fallback_appeal_letter(
     ordering_physician: str,
     clinical_summary: str,
 ) -> str:
+    """Generate a professional template appeal letter using FHIR clinical summary data."""
     today = date.today().strftime("%B %d, %Y")
     level_word = {1: "First", 2: "Second", 3: "Third"}.get(appeal_level, "First")
 
