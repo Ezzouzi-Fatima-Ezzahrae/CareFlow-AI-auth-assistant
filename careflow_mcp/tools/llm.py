@@ -112,4 +112,31 @@ def _try_model(model_name: str, token: str, system_prompt: str, user_prompt: str
         raise RuntimeError(f"Gemini generation stopped unexpectedly: {finish_reason}")
 
     text = candidate["content"]["parts"][0]["text"]
- 
+    return text
+
+
+_MODEL_CANDIDATES = [
+    LLM_MODEL,
+    "gemini-2.5-flash",
+    "gemini-2.0-flash",
+    "gemini-1.5-flash",
+]
+
+
+def llm_call(system_prompt: str, user_prompt: str) -> str:
+    """Single-turn LLM call. Tries multiple Gemini models until one succeeds."""
+    token = _get_access_token()
+    seen = set()
+    last_error = None
+
+    for model in _MODEL_CANDIDATES:
+        if model in seen:
+            continue
+        seen.add(model)
+        try:
+            return _try_model(model, token, system_prompt, user_prompt)
+        except Exception as exc:
+            logger.warning(f"Model {model} failed: {exc}")
+            last_error = exc
+
+    raise RuntimeError(f"All Gemini models failed. Last error: {last_error}")
