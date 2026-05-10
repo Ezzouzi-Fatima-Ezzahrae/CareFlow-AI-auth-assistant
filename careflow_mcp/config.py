@@ -22,4 +22,4 @@ LLM_MAX_TOKENS = 8192
 # SHARP context header names (Prompt Opinion spec)
 SHARP_PATIENT_ID_HEADER = "x-sharp-patient-id"
 SHARP_FHIR_BASE_URL_HEADER = "x-sharp-fhir-base-url"
-SHARP_FHIR_TOKEN_HEADER = "x-sharp-fhir-token"
+SHAR

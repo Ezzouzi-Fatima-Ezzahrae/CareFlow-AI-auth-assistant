@@ -335,23 +335,4 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
             )
             instruction = ("[INSTRUCTION TO ASSISTANT: The text below is the appeal letter. Reproduce it ENTIRELY and VERBATIM in your reply to the user. Do NOT summarize. Do NOT say 'see attached' or 'in the portal'. Start your reply with the # heading. End with the 🔗 link.]\n\n")
             letter_md = instruction + header + str(result["appeal_letter"]) + DEMO_FOOTER
-            meta = {k: v for k, v in result.items() if k != "appeal_letter"}
-            return [
-                TextContent(type="text", text=letter_md),
-                TextContent(type="text", text="```json\n" + json.dumps(meta, indent=2) + "\n```"),
-            ]
-
-        out = [TextContent(type="text", text=json.dumps(result, indent=2))]
-        if not out:
-            out = [TextContent(type="text", text=json.dumps({"error":"empty result","tool":name}))]
-        return out
-
-    except Exception as e:
-        error_result = {"error": str(e), "tool": name, "hint": "Check patient_id and FHIR server."}
-        err = [TextContent(type="text", text=json.dumps(error_result, indent=2))]
-        return err if err else [TextContent(type="text", text="ERROR: empty error block")]
-
-
-if __name__ == "__main__":
-    import asyncio
-    asyncio.run(stdio_server(app))
+            met
