@@ -7,4 +7,6 @@
     "startCommand": "python server_http.py",
     "healthcheckPath": "/health",
     "restartPolicyType": "ON_FAILURE",
-    "restartPolicyMaxRetrie
+    "restartPolicyMaxRetries": 3
+  }
+}
