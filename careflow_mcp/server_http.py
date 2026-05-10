@@ -732,7 +732,7 @@ async function runWorkflow() {
   } catch(e) {
     clearInterval(stepTimer);
     document.getElementById('progress-card').style.display = 'none';
-    alert('Request failed: ' + e.message + '\n\nPlease try again.');
+    alert('Request failed: ' + e.message + ' Please try again.');
   } finally {
     document.getElementById('btn-text').textContent = 'Run Full Prior Auth Workflow';
     document.getElementById('spinner').style.display = 'none';
